@@ -1,10 +1,16 @@
 from dotenv import load_dotenv
 from fastapi import FastAPI
-from langchain_core.messages import HumanMessage
+from phoenix.otel import register
 from pydantic import BaseModel
-from agent import build_agent
 
 load_dotenv()
+
+register(project_name="se-interview", auto_instrument=True)
+
+# Import LangChain and LangGraph after tracing is registered.
+from langchain_core.messages import HumanMessage
+
+from agent import build_agent
 
 agent = build_agent()
 

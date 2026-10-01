@@ -1,17 +1,61 @@
+import json
 import operator
 from typing import Annotated, Literal
 
 from dotenv import load_dotenv
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_core.messages import AnyMessage, SystemMessage, ToolMessage
+from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from typing_extensions import TypedDict
 
 load_dotenv()
 
+
+@tool
+def estimate_trip_budget(
+    days: int,
+    nights: int,
+    travelers: int,
+    hotel_per_night: float,
+    food_per_day: float,
+    activities_per_day: float,
+    transportation_total: float,
+) -> str:
+    """Estimate a trip budget in USD, using costs for the entire group.
+
+    Supply trip days, hotel nights, and number of travelers separately.
+    Hotel is per night; food and all activities combined are per day;
+    transportation is for the whole trip. All inputs are required.
+    Use positive days and travelers, and nonnegative nights and costs.
+    Ask for missing inputs or unclear group costs before calling; do not invent
+    prices, assume nights, or treat missing costs as zero. Returns JSON with
+    estimated totals and an equal per-person split, covering supplied costs only.
+    """
+    print(
+        f"Trip budget tool called: {days} days, {nights} nights, "
+        f"{travelers} travelers"
+    )
+
+    breakdown = {
+        "hotel": round(nights * hotel_per_night, 2),
+        "food": round(days * food_per_day, 2),
+        "activities": round(days * activities_per_day, 2),
+        "transportation": round(transportation_total, 2),
+    }
+    total = round(sum(breakdown.values()), 2)
+    return json.dumps({
+        "currency": "USD",
+        "breakdown": breakdown,
+        "total": total,
+        "per_person": round(total / travelers, 2),
+        "per_day": round(total / days, 2),
+    })
+
+
 search_tool = DuckDuckGoSearchRun()
-tools = [search_tool]
+tools = [search_tool, estimate_trip_budget]
 tools_by_name = {tool.name: tool for tool in tools}
 
 model = ChatOpenAI(model="gpt-4o", temperature=0)
